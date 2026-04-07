@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fruit Madness 2026</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+/* ── Reset & Base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0f1117; --surface: #1a1d27; --surface2: #252836;
+  --border: #2e3144; --text: #e4e4e7; --text-dim: #9ca3af;
+  --accent: #f59e0b; --accent2: #10b981; --accent3: #6366f1;
+  --red: #ef4444; --green: #22c55e;
+  --radius: 8px; --radius-lg: 12px;
+}
+html { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); }
+body { min-height: 100vh; }
+button { cursor: pointer; font-family: inherit; }
+a { color: var(--accent); text-decoration: none; }
+
+/* ── Layout ── */
+.container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+header { text-align: center; padding: 32px 20px 24px; }
+header h1 { font-size: 2.2rem; font-weight: 800; letter-spacing: -0.5px; }
+header h1 span { color: var(--accent); }
+header p { color: var(--text-dim); margin-top: 6px; font-size: 0.95rem; }
+.progress-bar-wrap { max-width: 500px; margin: 16px auto 0; background: var(--surface2); border-radius: 20px; height: 8px; overflow: hidden; }
+.progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 20px; transition: width 0.3s; }
+.progress-text { text-align: center; margin-top: 6px; font-size: 0.85rem; color: var(--text-dim); }
+
+/* ── Bracket Grid ── */
+.bracket-container { overflow-x: auto; padding: 20px 0; }
+.bracket { display: flex; gap: 8px; min-width: max-content; align-items: stretch; }
+.round { display: flex; flex-direction: column; min-width: 150px; }
+.round-label { text-align: center; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-bottom: 8px; }
+.matchup { display: flex; flex-direction: column; border-radius: var(--radius); overflow: hidden; margin: 4px 0; border: 1px solid var(--border); background: var(--surface); }
+.matchup.decided .seed-btn.winner { background: var(--surface2); border-left: 3px solid var(--accent); }
+.matchup.decided .seed-btn:not(.winner) { opacity: 0.35; }
+.seed-btn { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--surface); border: none; color: var(--text); font-size: 0.85rem; width: 100%; text-align: left; transition: background 0.15s, opacity 0.15s; border-left: 3px solid transparent; }
+.seed-btn:hover:not(:disabled) { background: var(--surface2); }
+.seed-btn:disabled { cursor: default; }
+.seed-btn .seed-num { font-size: 0.7rem; color: var(--text-dim); min-width: 18px; text-align: right; }
+.seed-btn .emoji { font-size: 1.1rem; }
+.seed-btn .name { flex: 1; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.matchup + .matchup { margin-top: 0; }
+.connector { min-width: 20px; }
+
+/* Each round uses flex with equal spacing; matchups auto-distribute vertically */
+.round { flex: 0 0 150px; }
+.round .matchup-wrap { flex: 1; display: flex; align-items: center; justify-content: center; }
+.round .matchup { width: 100%; }
+
+/* ── Champion Display ── */
+.champion-display { text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 140px; }
+.champion-display .trophy { font-size: 2.5rem; margin-bottom: 8px; }
+.champion-display .champ-fruit { font-size: 2rem; margin-bottom: 4px; }
+.champion-display .champ-name { font-size: 1rem; font-weight: 700; color: var(--accent); }
+.champion-display .champ-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-top: 4px; }
+
+/* ── Submit ── */
+.submit-section { text-align: center; padding: 32px 20px; }
+.btn-submit { background: linear-gradient(135deg, var(--accent), #d97706); color: #000; font-size: 1.1rem; font-weight: 700; padding: 14px 48px; border: none; border-radius: var(--radius-lg); letter-spacing: 0.5px; transition: transform 0.1s, box-shadow 0.2s; }
+.btn-submit:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(245,158,11,0.3); }
+.btn-submit:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* ── Toast / Modal ── */
+.toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: var(--surface2); border: 1px solid var(--border); padding: 12px 24px; border-radius: var(--radius); font-size: 0.9rem; z-index: 1000; display: none; box-shadow: 0 8px 30px rgba(0,0,0,0.4); }
+.toast.error { border-color: var(--red); }
+.toast.success { border-color: var(--green); }
+.toast.show { display: block; animation: slideDown 0.3s ease; }
+@keyframes slideDown { from { opacity: 0; transform: translateX(-50%) translateY(-10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+
+/* ── Results Page ── */
+.results-page { display: none; }
+.results-page.active { display: block; }
+.bracket-page.hidden { display: none; }
+.results-header { text-align: center; padding: 32px 20px; }
+.results-header h1 { font-size: 2rem; }
+.results-header .sub { color: var(--text-dim); margin-top: 4px; }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; padding: 0 20px 40px; max-width: 1200px; margin: 0 auto; }
+.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; }
+.stat-card h2 { font-size: 1rem; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+.stat-card h2 .icon { font-size: 1.2rem; }
+.rank-list { list-style: none; }
+.rank-list li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.88rem; }
+.rank-list li:last-child { border-bottom: none; }
+.rank-list .rank { min-width: 24px; font-weight: 700; color: var(--text-dim); text-align: right; }
+.rank-list .emoji { font-size: 1.1rem; }
+.rank-list .name { flex: 1; font-weight: 500; }
+.rank-list .val { color: var(--accent); font-weight: 600; font-variant-numeric: tabular-nums; }
+.bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 0.85rem; }
+.bar-row .label { min-width: 110px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar-row .bar-bg { flex: 1; background: var(--surface2); border-radius: 4px; height: 22px; overflow: hidden; }
+.bar-row .bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s; display: flex; align-items: center; padding-left: 6px; font-size: 0.75rem; font-weight: 600; color: #000; min-width: 30px; }
+.bar-fill.gold { background: var(--accent); }
+.bar-fill.green { background: var(--accent2); }
+.bar-fill.purple { background: var(--accent3); }
+.bar-fill.red { background: var(--red); }
+.total-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--surface2); padding: 8px 20px; border-radius: 20px; font-size: 1.1rem; font-weight: 700; margin-top: 8px; }
+.btn-back { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 10px 24px; border-radius: var(--radius); font-weight: 600; margin-top: 16px; }
+.btn-back:hover { background: var(--surface); }
+
+/* ── Mobile ── */
+@media (max-width: 768px) {
+  header h1 { font-size: 1.6rem; }
+  .bracket { gap: 4px; }
+  .round { min-width: 120px; }
+  .seed-btn { padding: 6px 8px; font-size: 0.78rem; }
+  .seed-btn .name { max-width: 60px; }
+  .stat-grid { grid-template-columns: 1fr; padding: 0 12px 32px; }
+}
+
+/* ── Loading ── */
+.loading { display: flex; align-items: center; justify-content: center; padding: 60px; }
+.spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Tabs ── */
+.tab-row { display: flex; justify-content: center; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
+.tab-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text-dim); padding: 8px 16px; border-radius: 20px; font-size: 0.82rem; font-weight: 600; }
+.tab-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div id="toast" class="toast"></div>
+
+<!-- ========== BRACKET PAGE ========== -->
+<div class="bracket-page" id="bracketPage">
+  <header>
+    <h1>🍉 Fruit <span>Madness</span> 2026 🍊</h1>
+    <p>Pick your winners. Crown a champion. 32 fruits enter, 1 survives.</p>
+    <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
+    <div class="progress-text" id="progressText">0 / 31 picks</div>
+  </header>
+  <div class="container">
+    <div class="bracket-container">
+      <div class="bracket" id="bracket"></div>
+    </div>
+  </div>
+  <div class="submit-section">
+    <button class="btn-submit" id="btnSubmit" disabled>Submit Bracket</button>
+  </div>
+</div>
+
+<!-- ========== RESULTS PAGE ========== -->
+<div class="results-page" id="resultsPage">
+  <div class="results-header">
+    <h1>🏆 Fruit Madness 2026 — Results</h1>
+    <p class="sub" id="resultsSub"></p>
+    <div class="total-badge" id="totalBadge"></div>
+    <br>
+    <button class="btn-back" id="btnNewBracket">Fill Out a Bracket</button>
+  </div>
+  <div class="stat-grid" id="statsGrid"></div>
+</div>
+
+<script>
+// ── CONFIG (fill in your Supabase credentials) ──
+const SUPABASE_URL = 'YOUR_URL';
+const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY';
+
+// ── FRUIT DATA ──
+const FRUITS = {
+  1:  { emoji: '🥭', name: 'Mango' },
+  2:  { emoji: '🍓', name: 'Strawberry' },
+  3:  { emoji: '🍉', name: 'Watermelon' },
+  4:  { emoji: '🍑', name: 'Peach' },
+  5:  { emoji: '🍍', name: 'Pineapple' },
+  6:  { emoji: '🍒', name: 'Cherry' },
+  7:  { emoji: '🫐', name: 'Blueberry' },
+  8:  { emoji: '🍇', name: 'Grape' },
+  9:  { emoji: '🍊', name: 'Orange' },
+  10: { emoji: '🍎', name: 'Apple' },
+  11: { emoji: '🍓', name: 'Raspberry' },
+  12: { emoji: '🍌', name: 'Banana' },
+  13: { emoji: '🥝', name: 'Kiwi' },
+  14: { emoji: '🌺', name: 'Pomegranate' },
+  15: { emoji: '💛', name: 'Passion Fruit' },
+  16: { emoji: '🌸', name: 'Lychee' },
+  17: { emoji: '🟠', name: 'Apricot' },
+  18: { emoji: '🟣', name: 'Plum' },
+  19: { emoji: '🫐', name: 'Blackberry' },
+  20: { emoji: '🍐', name: 'Guava' },
+  21: { emoji: '🟡', name: 'Cantaloupe' },
+  22: { emoji: '🍊', name: 'Tangerine' },
+  23: { emoji: '🟤', name: 'Fig' },
+  24: { emoji: '🧡', name: 'Papaya' },
+  25: { emoji: '🍅', name: 'Persimmon' },
+  26: { emoji: '🐉', name: 'Dragonfruit' },
+  27: { emoji: '🥥', name: 'Coconut' },
+  28: { emoji: '🍋', name: 'Lemon' },
+  29: { emoji: '⭐', name: 'Starfruit' },
+  30: { emoji: '🥑', name: 'Avocado' },
+  31: { emoji: '🍍', name: 'Jackfruit' },
+  32: { emoji: '💀', name: 'Durian' },
+};
+
+// NCAA-style matchup order (seed pairs) for 32-team bracket
+// Region A (top): 1v32, 16v17, 8v25, 9v24
+// Region B: 5v28, 12v21, 4v29, 13v20
+// Region C: 3v30, 14v19, 6v27, 11v22
+// Region D (bottom): 7v26, 10v23, 2v31, 15v18
+const FIRST_ROUND = [
+  [1,32],[16,17],[8,25],[9,24],
+  [5,28],[12,21],[4,29],[13,20],
+  [3,30],[14,19],[6,27],[11,22],
+  [7,26],[10,23],[2,31],[15,18],
+];
+
+const ROUND_NAMES = ['Round of 32','Sweet 16','Elite 8','Final Four','Championship'];
+
+// ── STATE ──
+let picks = {};     // key: "round-matchIdx" → winner seed
+let bracketData = { rounds: [], champion: null };
+let sb = null;
+function getSupabase() {
+  if (!sb) sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  return sb;
+}
+
+// ── INIT ──
+document.addEventListener('DOMContentLoaded', () => {
+  renderBracket();
+  document.getElementById('btnSubmit').addEventListener('click', submitBracket);
+  document.getElementById('btnNewBracket').addEventListener('click', () => {
+    document.getElementById('resultsPage').classList.remove('active');
+    document.getElementById('bracketPage').classList.remove('hidden');
+  });
+  // Check URL hash
+  if (location.hash === '#results') showResults();
+});
+
+// ── RENDER BRACKET ──
+function renderBracket() {
+  const bracketEl = document.getElementById('bracket');
+  bracketEl.innerHTML = '';
+
+  // Left side: rounds 0-3 (first round → final four) for top half visual
+  // We'll render: R32 left | S16 left | E8 left | F4 | Championship | F4 | E8 right | S16 right | R32 right
+  // Simpler approach: linear left-to-right bracket
+
+  // Round 0: 16 matchups → Round 1: 8 → Round 2: 4 → Round 3: 2 → Round 4: 1 (championship)
+  for (let r = 0; r < 5; r++) {
+    const roundDiv = document.createElement('div');
+    roundDiv.className = 'round';
+    roundDiv.dataset.round = r;
+
+    const label = document.createElement('div');
+    label.className = 'round-label';
+    label.textContent = ROUND_NAMES[r];
+    roundDiv.appendChild(label);
+
+    const matchCount = r === 0 ? 16 : r === 1 ? 8 : r === 2 ? 4 : r === 3 ? 2 : 1;
+
+    for (let m = 0; m < matchCount; m++) {
+      const wrap = document.createElement('div');
+      wrap.className = 'matchup-wrap';
+
+      const matchDiv = document.createElement('div');
+      matchDiv.className = 'matchup';
+      matchDiv.id = `match-${r}-${m}`;
+
+      if (r === 0) {
+        const [seedA, seedB] = FIRST_ROUND[m];
+        matchDiv.appendChild(makeSeedBtn(seedA, r, m));
+        matchDiv.appendChild(makeSeedBtn(seedB, r, m));
+      } else {
+        matchDiv.appendChild(makeSeedBtn(null, r, m));
+        matchDiv.appendChild(makeSeedBtn(null, r, m));
+      }
+
+      wrap.appendChild(matchDiv);
+      roundDiv.appendChild(wrap);
+    }
+    bracketEl.appendChild(roundDiv);
+  }
+
+  // Champion display
+  const champDiv = document.createElement('div');
+  champDiv.className = 'champion-display';
+  champDiv.id = 'champDisplay';
+  champDiv.innerHTML = '<div class="trophy">🏆</div><div class="champ-fruit" id="champEmoji">?</div><div class="champ-name" id="champName">TBD</div><div class="champ-label">Champion</div>';
+  bracketEl.appendChild(champDiv);
+}
+
+function makeSeedBtn(seed, round, matchIdx) {
+  const btn = document.createElement('button');
+  btn.className = 'seed-btn';
+  if (seed === null) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="seed-num">-</span><span class="emoji">❓</span><span class="name">TBD</span>';
+    return btn;
+  }
+  const f = FRUITS[seed];
+  btn.innerHTML = `<span class="seed-num">${seed}</span><span class="emoji">${f.emoji}</span><span class="name">${f.name}</span>`;
+  btn.dataset.seed = seed;
+  btn.addEventListener('click', () => pickWinner(round, matchIdx, seed));
+  return btn;
+}
+
+function pickWinner(round, matchIdx, winnerSeed) {
+  const key = `${round}-${matchIdx}`;
+  const prevWinner = picks[key];
+
+  // If changing pick, cascade clear future rounds
+  if (prevWinner !== undefined && prevWinner !== winnerSeed) {
+    cascadeClear(round, matchIdx, prevWinner);
+  }
+
+  picks[key] = winnerSeed;
+
+  // Find loser
+  const matchEl = document.getElementById(`match-${round}-${matchIdx}`);
+  const btns = matchEl.querySelectorAll('.seed-btn');
+  let loserSeed = null;
+  btns.forEach(b => {
+    const s = parseInt(b.dataset.seed);
+    if (s === winnerSeed) { b.classList.add('winner'); }
+    else { b.classList.remove('winner'); loserSeed = s; }
+  });
+  matchEl.classList.add('decided');
+
+  // Advance winner to next round
+  if (round < 4) {
+    const nextRound = round + 1;
+    const nextMatch = Math.floor(matchIdx / 2);
+    const slot = matchIdx % 2; // 0 = top, 1 = bottom
+    const nextMatchEl = document.getElementById(`match-${nextRound}-${nextMatch}`);
+    if (nextMatchEl) {
+      const nextBtns = nextMatchEl.querySelectorAll('.seed-btn');
+      const btn = nextBtns[slot];
+      const f = FRUITS[winnerSeed];
+      btn.innerHTML = `<span class="seed-num">${winnerSeed}</span><span class="emoji">${f.emoji}</span><span class="name">${f.name}</span>`;
+      btn.dataset.seed = winnerSeed;
+      btn.disabled = false;
+      btn.onclick = () => pickWinner(nextRound, nextMatch, winnerSeed);
+    }
+  }
+
+  // Update champion display
+  if (round === 4) {
+    const f = FRUITS[winnerSeed];
+    document.getElementById('champEmoji').textContent = f.emoji;
+    document.getElementById('champName').textContent = f.name;
+  }
+
+  updateProgress();
+}
+
+function cascadeClear(round, matchIdx, oldWinner) {
+  // Clear this pick's effect in the next round
+  if (round >= 4) return;
+  const nextRound = round + 1;
+  const nextMatch = Math.floor(matchIdx / 2);
+  const slot = matchIdx % 2;
+  const nextKey = `${nextRound}-${nextMatch}`;
+
+  // Check if old winner was placed in next round slot
+  const nextMatchEl = document.getElementById(`match-${nextRound}-${nextMatch}`);
+  if (!nextMatchEl) return;
+  const btns = nextMatchEl.querySelectorAll('.seed-btn');
+  const slotBtn = btns[slot];
+  if (parseInt(slotBtn.dataset.seed) === oldWinner) {
+    // If this was the picked winner of next match, cascade further
+    if (picks[nextKey] === oldWinner) {
+      cascadeClear(nextRound, nextMatch, oldWinner);
+      delete picks[nextKey];
+      nextMatchEl.classList.remove('decided');
+      btns.forEach(b => b.classList.remove('winner'));
+    }
+    // Reset slot
+    slotBtn.innerHTML = '<span class="seed-num">-</span><span class="emoji">❓</span><span class="name">TBD</span>';
+    slotBtn.disabled = true;
+    slotBtn.onclick = null;
+    delete slotBtn.dataset.seed;
+  }
+
+  // Clear champion if needed
+  if (nextRound === 4 && picks[nextKey] === undefined) {
+    document.getElementById('champEmoji').textContent = '?';
+    document.getElementById('champName').textContent = 'TBD';
+  }
+}
+
+function updateProgress() {
+  const total = Object.keys(picks).length;
+  document.getElementById('progressFill').style.width = `${(total / 31) * 100}%`;
+  document.getElementById('progressText').textContent = `${total} / 31 picks`;
+  document.getElementById('btnSubmit').disabled = total < 31;
+}
+
+// ── BUILD BRACKET DATA ──
+function buildBracketJSON() {
+  const rounds = [];
+  const roundSizes = [16, 8, 4, 2, 1];
+
+  for (let r = 0; r < 5; r++) {
+    const roundData = [];
+    for (let m = 0; m < roundSizes[r]; m++) {
+      const winner = picks[`${r}-${m}`];
+      // Find loser
+      let participants;
+      if (r === 0) {
+        participants = FIRST_ROUND[m];
+      } else {
+        // Get from previous round winners feeding into this matchup
+        const pA = picks[`${r - 1}-${m * 2}`];
+        const pB = picks[`${r - 1}-${m * 2 + 1}`];
+        participants = [pA, pB];
+      }
+      const loser = participants.find(s => s !== winner);
+      roundData.push([winner, loser]);
+    }
+    rounds.push(roundData);
+  }
+
+  const champion = picks['4-0'];
+  return { rounds, champion };
+}
+
+// ── SUBMIT ──
+async function submitBracket() {
+  const btn = document.getElementById('btnSubmit');
+  btn.disabled = true;
+  btn.textContent = 'Submitting…';
+
+  try {
+    // Get IP
+    const ipRes = await fetch('https://api.ipify.org?format=json');
+    const { ip } = await ipRes.json();
+
+    const bracket = buildBracketJSON();
+    const champion = FRUITS[bracket.champion].name;
+
+    const { error } = await getSupabase().from('submissions').insert({
+      ip,
+      bracket,
+      champion,
+    });
+
+    if (error) {
+      if (error.code === '23505') { // unique violation
+        showToast("You've already submitted a bracket!", 'error');
+        setTimeout(() => showResults(), 1500);
+        return;
+      }
+      throw error;
+    }
+
+    showToast('Bracket submitted! 🎉', 'success');
+    setTimeout(() => showResults(), 1000);
+  } catch (e) {
+    console.error(e);
+    showToast('Error submitting: ' + (e.message || e), 'error');
+    btn.disabled = false;
+    btn.textContent = 'Submit Bracket';
+  }
+}
+
+// ── TOAST ──
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + type;
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// ── RESULTS ──
+async function showResults() {
+  document.getElementById('bracketPage').classList.add('hidden');
+  const rp = document.getElementById('resultsPage');
+  rp.classList.add('active');
+  rp.querySelector('.stat-grid').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  location.hash = 'results';
+
+  const { data: submissions, error } = await getSupabase().from('submissions').select('*');
+  if (error || !submissions) {
+    rp.querySelector('.stat-grid').innerHTML = '<p style="text-align:center;color:var(--text-dim)">Error loading results.</p>';
+    return;
+  }
+
+  const n = submissions.length;
+  document.getElementById('resultsSub').textContent = n === 0 ? 'No submissions yet. Be the first!' : `Based on ${n} bracket${n > 1 ? 's' : ''}`;
+  document.getElementById('totalBadge').innerHTML = `📊 <span>${n}</span> submission${n > 1 ? 's' : ''}`;
+
+  if (n === 0) { rp.querySelector('.stat-grid').innerHTML = ''; return; }
+
+  // Compute stats
+  const elo = computeElo(submissions);
+  const ff = computeFinalFour(submissions);
+  const upsets = computeUpsets(submissions);
+  const { overrated, underrated } = computeRatedStats(submissions);
+  const champDist = computeChampionDist(submissions, n);
+
+  const grid = document.getElementById('statsGrid');
+  grid.innerHTML = '';
+
+  // Power Rankings
+  grid.appendChild(makeListCard('⚡', 'Power Rankings', elo.slice(0, 15), (item, i) =>
+    `<li><span class="rank">${i + 1}</span><span class="emoji">${FRUITS[item.seed].emoji}</span><span class="name">${FRUITS[item.seed].name}</span><span class="val">${item.score.toFixed(0)} pts</span></li>`
+  ));
+
+  // Final Four
+  grid.appendChild(makeListCard('🏀', 'Most Likely Final Four', ff.slice(0, 8), (item, i) =>
+    `<li><span class="rank">${i + 1}</span><span class="emoji">${FRUITS[item.seed].emoji}</span><span class="name">${FRUITS[item.seed].name}</span><span class="val">${item.pct.toFixed(1)}%</span></li>`
+  ));
+
+  // Biggest Upsets
+  grid.appendChild(makeListCard('🤯', 'Biggest Upsets', upsets.slice(0, 8), (item, i) =>
+    `<li><span class="rank">${i + 1}</span><span class="emoji">${FRUITS[item.winner].emoji}</span><span class="name">#${item.winner} ${FRUITS[item.winner].name} over #${item.loser} ${FRUITS[item.loser].name}</span><span class="val">${item.pct.toFixed(0)}% · Δ${item.gap}</span></li>`
+  ));
+
+  // Overrated
+  grid.appendChild(makeListCard('📉', 'Most Overrated', overrated.slice(0, 5), (item, i) =>
+    `<li><span class="rank">${i + 1}</span><span class="emoji">${FRUITS[item.seed].emoji}</span><span class="name">#${item.seed} ${FRUITS[item.seed].name}</span><span class="val">Avg exit: R${item.avgRound.toFixed(1)}</span></li>`
+  ));
+
+  // Underrated
+  grid.appendChild(makeListCard('📈', 'Most Underrated', underrated.slice(0, 5), (item, i) =>
+    `<li><span class="rank">${i + 1}</span><span class="emoji">${FRUITS[item.seed].emoji}</span><span class="name">#${item.seed} ${FRUITS[item.seed].name}</span><span class="val">Avg exit: R${item.avgRound.toFixed(1)}</span></li>`
+  ));
+
+  // Champion Distribution
+  const champCard = document.createElement('div');
+  champCard.className = 'stat-card';
+  champCard.innerHTML = `<h2><span class="icon">👑</span> Champion Picks</h2>`;
+  const colors = ['gold', 'green', 'purple', 'red'];
+  const maxPct = champDist[0]?.pct || 1;
+  champDist.slice(0, 12).forEach((item, i) => {
+    const colorClass = colors[i % colors.length];
+    champCard.innerHTML += `<div class="bar-row"><span class="label">${FRUITS[item.seed].emoji} ${FRUITS[item.seed].name}</span><div class="bar-bg"><div class="bar-fill ${colorClass}" style="width:${(item.pct / maxPct) * 100}%">${item.pct.toFixed(1)}%</div></div></div>`;
+  });
+  grid.appendChild(champCard);
+}
+
+function makeListCard(icon, title, items, renderFn) {
+  const card = document.createElement('div');
+  card.className = 'stat-card';
+  card.innerHTML = `<h2><span class="icon">${icon}</span> ${title}</h2><ul class="rank-list">${items.map(renderFn).join('')}</ul>`;
+  return card;
+}
+
+// ── STATS COMPUTATION ──
+
+function computeElo(submissions) {
+  // Score: every win gives points = (33 - loser's seed) * round_weight
+  const scores = {};
+  for (let s = 1; s <= 32; s++) scores[s] = 0;
+  const roundWeights = [1, 2, 4, 8, 16];
+
+  submissions.forEach(sub => {
+    const b = sub.bracket;
+    b.rounds.forEach((round, rIdx) => {
+      round.forEach(([winner, loser]) => {
+        if (winner && loser) {
+          scores[winner] += (33 - loser) * roundWeights[rIdx];
+        }
+      });
+    });
+  });
+
+  return Object.entries(scores)
+    .map(([seed, score]) => ({ seed: parseInt(seed), score }))
+    .sort((a, b) => b.score - a.score);
+}
+
+function computeFinalFour(submissions) {
+  const counts = {};
+  for (let s = 1; s <= 32; s++) counts[s] = 0;
+  const n = submissions.length;
+
+  submissions.forEach(sub => {
+    const b = sub.bracket;
+    // Final four = round 3 participants = winners of round 2 (Elite 8)
+    if (b.rounds[3]) {
+      b.rounds[3].forEach(([winner, loser]) => {
+        if (winner) counts[winner]++;
+        if (loser) counts[loser]++;
+      });
+    }
+  });
+
+  return Object.entries(counts)
+    .map(([seed, count]) => ({ seed: parseInt(seed), pct: (count / n) * 100 }))
+    .filter(x => x.pct > 0)
+    .sort((a, b) => b.pct - a.pct);
+}
+
+function computeUpsets(submissions) {
+  // Matchup: lower seed (higher number) beating higher seed (lower number)
+  const matchups = {}; // key: "winnerSeed-loserSeed"
+  const n = submissions.length;
+
+  submissions.forEach(sub => {
+    sub.bracket.rounds.forEach(round => {
+      round.forEach(([winner, loser]) => {
+        if (winner && loser && winner > loser) {
+          // Upset: higher-numbered seed won
+          const key = `${winner}-${loser}`;
+          matchups[key] = (matchups[key] || 0) + 1;
+        }
+      });
+    });
+  });
+
+  return Object.entries(matchups)
+    .map(([key, count]) => {
+      const [winner, loser] = key.split('-').map(Number);
+      const gap = winner - loser;
+      return { winner, loser, count, gap, pct: (count / n) * 100, weight: gap * count };
+    })
+    .sort((a, b) => b.weight - a.weight);
+}
+
+function computeRatedStats(submissions) {
+  // For each fruit, compute avg round of elimination
+  // Round of elimination: last round they appear as a winner. If never win, round 0 (eliminated in R32).
+  const totalRounds = {};
+  for (let s = 1; s <= 32; s++) totalRounds[s] = 0;
+  const n = submissions.length;
+
+  submissions.forEach(sub => {
+    const lastWin = {};
+    for (let s = 1; s <= 32; s++) lastWin[s] = 0;
+    sub.bracket.rounds.forEach((round, rIdx) => {
+      round.forEach(([winner]) => {
+        if (winner) lastWin[winner] = rIdx + 1;
+      });
+    });
+    for (let s = 1; s <= 32; s++) totalRounds[s] += lastWin[s];
+  });
+
+  const avgRounds = Object.entries(totalRounds).map(([seed, total]) => ({
+    seed: parseInt(seed),
+    avgRound: total / n,
+  }));
+
+  // Overrated: top 16 seeds with lowest avg round
+  const overrated = avgRounds
+    .filter(x => x.seed <= 16)
+    .sort((a, b) => a.avgRound - b.avgRound);
+
+  // Underrated: bottom 16 seeds (17-32) with highest avg round
+  const underrated = avgRounds
+    .filter(x => x.seed > 16)
+    .sort((a, b) => b.avgRound - a.avgRound);
+
+  return { overrated, underrated };
+}
+
+function computeChampionDist(submissions, n) {
+  const counts = {};
+  submissions.forEach(sub => {
+    const champ = sub.bracket.champion;
+    counts[champ] = (counts[champ] || 0) + 1;
+  });
+  return Object.entries(counts)
+    .map(([seed, count]) => ({ seed: parseInt(seed), count, pct: (count / n) * 100 }))
+    .sort((a, b) => b.count - a.count);
+}
+</script>
+</body>
+</html>
