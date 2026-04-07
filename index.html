@@ -33,7 +33,7 @@ header p { color: var(--text-dim); margin-top: 6px; font-size: 0.95rem; }
 /* ── Bracket Grid ── */
 .bracket-container { overflow-x: auto; padding: 20px 0; }
 .bracket { display: flex; gap: 8px; min-width: max-content; align-items: stretch; }
-.round { display: flex; flex-direction: column; min-width: 150px; }
+.round { display: flex; flex-direction: column; min-width: 190px; }
 .round-label { text-align: center; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-bottom: 8px; }
 .matchup { display: flex; flex-direction: column; border-radius: var(--radius); overflow: hidden; margin: 4px 0; border: 1px solid var(--border); background: var(--surface); }
 .matchup.decided .seed-btn.winner { background: var(--surface2); border-left: 3px solid var(--accent); }
@@ -48,7 +48,7 @@ header p { color: var(--text-dim); margin-top: 6px; font-size: 0.95rem; }
 .connector { min-width: 20px; }
 
 /* Each round uses flex with equal spacing; matchups auto-distribute vertically */
-.round { flex: 0 0 150px; }
+.round { flex: 0 0 190px; }
 .round .matchup-wrap { flex: 1; display: flex; align-items: center; justify-content: center; }
 .round .matchup { width: 100%; }
 
@@ -106,9 +106,9 @@ header p { color: var(--text-dim); margin-top: 6px; font-size: 0.95rem; }
 @media (max-width: 768px) {
   header h1 { font-size: 1.6rem; }
   .bracket { gap: 4px; }
-  .round { min-width: 120px; }
+  .round { min-width: 150px; }
   .seed-btn { padding: 6px 8px; font-size: 0.78rem; }
-  .seed-btn .name { max-width: 60px; }
+  .seed-btn .name { max-width: 80px; }
   .stat-grid { grid-template-columns: 1fr; padding: 0 12px 32px; }
 }
 
