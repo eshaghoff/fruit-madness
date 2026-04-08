@@ -52,18 +52,29 @@ header p { color: var(--text-dim); margin-top: 6px; font-size: 0.95rem; }
 .round .matchup-wrap { flex: 1; display: flex; align-items: center; justify-content: center; }
 .round .matchup { width: 100%; }
 
-/* ── Champion Display ── */
-.champion-display { text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 140px; }
+/* ── Champion + Submit Column ── */
+.champ-submit-col { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 160px; gap: 20px; }
+.champion-display { text-align: center; display: flex; flex-direction: column; align-items: center; }
 .champion-display .trophy { font-size: 2.5rem; margin-bottom: 8px; }
 .champion-display .champ-fruit { font-size: 2rem; margin-bottom: 4px; }
 .champion-display .champ-name { font-size: 1rem; font-weight: 700; color: var(--accent); }
 .champion-display .champ-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-top: 4px; }
 
 /* ── Submit ── */
-.submit-section { text-align: center; padding: 32px 20px; }
-.btn-submit { background: linear-gradient(135deg, var(--accent), #d97706); color: #000; font-size: 1.1rem; font-weight: 700; padding: 14px 48px; border: none; border-radius: var(--radius-lg); letter-spacing: 0.5px; transition: transform 0.1s, box-shadow 0.2s; }
+.btn-submit { background: linear-gradient(135deg, var(--accent), #d97706); color: #000; font-size: 0.95rem; font-weight: 700; padding: 12px 32px; border: none; border-radius: var(--radius-lg); letter-spacing: 0.5px; transition: transform 0.1s, box-shadow 0.2s; white-space: nowrap; }
 .btn-submit:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(245,158,11,0.3); }
 .btn-submit:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* ── My Bracket Modal ── */
+.my-bracket-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 999; align-items: center; justify-content: center; }
+.my-bracket-overlay.show { display: flex; }
+.my-bracket-modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 28px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; }
+.my-bracket-modal h2 { margin-bottom: 16px; font-size: 1.1rem; }
+.my-bracket-modal .round-group { margin-bottom: 12px; }
+.my-bracket-modal .round-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-dim); margin-bottom: 4px; letter-spacing: 0.5px; }
+.my-bracket-modal .pick-row { display: flex; align-items: center; gap: 6px; padding: 4px 0; font-size: 0.85rem; }
+.my-bracket-modal .pick-row .winner-mark { color: var(--accent); }
+.btn-close-modal { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 8px 20px; border-radius: var(--radius); font-weight: 600; margin-top: 16px; }
 
 /* ── Toast / Modal ── */
 .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: var(--surface2); border: 1px solid var(--border); padding: 12px 24px; border-radius: var(--radius); font-size: 0.9rem; z-index: 1000; display: none; box-shadow: 0 8px 30px rgba(0,0,0,0.4); }
@@ -140,9 +151,6 @@ header p { color: var(--text-dim); margin-top: 6px; font-size: 0.95rem; }
       <div class="bracket" id="bracket"></div>
     </div>
   </div>
-  <div class="submit-section">
-    <button class="btn-submit" id="btnSubmit" disabled>Submit Bracket</button>
-  </div>
 </div>
 
 <!-- ========== RESULTS PAGE ========== -->
@@ -153,8 +161,18 @@ header p { color: var(--text-dim); margin-top: 6px; font-size: 0.95rem; }
     <div class="total-badge" id="totalBadge"></div>
     <br>
     <button class="btn-back" id="btnNewBracket">Fill Out a Bracket</button>
+    <button class="btn-back" id="btnViewMyBracket" style="display:none;margin-left:8px;">View My Bracket</button>
   </div>
   <div class="stat-grid" id="statsGrid"></div>
+</div>
+
+<!-- My Bracket Modal -->
+<div class="my-bracket-overlay" id="myBracketOverlay">
+  <div class="my-bracket-modal">
+    <h2>🗒️ Your Submitted Bracket</h2>
+    <div id="myBracketContent"></div>
+    <button class="btn-close-modal" id="btnCloseModal">Close</button>
+  </div>
 </div>
 
 <script>
@@ -224,11 +242,13 @@ function getSupabase() {
 // ── INIT ──
 document.addEventListener('DOMContentLoaded', () => {
   renderBracket();
-  document.getElementById('btnSubmit').addEventListener('click', submitBracket);
   document.getElementById('btnNewBracket').addEventListener('click', () => {
     document.getElementById('resultsPage').classList.remove('active');
     document.getElementById('bracketPage').classList.remove('hidden');
   });
+  document.getElementById('btnViewMyBracket').addEventListener('click', showMyBracket);
+  document.getElementById('btnCloseModal').addEventListener('click', () => document.getElementById('myBracketOverlay').classList.remove('show'));
+  document.getElementById('myBracketOverlay').addEventListener('click', (e) => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('show'); });
   // Check URL hash
   if (location.hash === '#results') showResults();
 });
@@ -278,12 +298,22 @@ function renderBracket() {
     bracketEl.appendChild(roundDiv);
   }
 
-  // Champion display
+  // Champion display + submit button column
+  const colDiv = document.createElement('div');
+  colDiv.className = 'champ-submit-col';
   const champDiv = document.createElement('div');
   champDiv.className = 'champion-display';
   champDiv.id = 'champDisplay';
   champDiv.innerHTML = '<div class="trophy">🏆</div><div class="champ-fruit" id="champEmoji">?</div><div class="champ-name" id="champName">TBD</div><div class="champ-label">Champion</div>';
-  bracketEl.appendChild(champDiv);
+  colDiv.appendChild(champDiv);
+  const submitBtn = document.createElement('button');
+  submitBtn.className = 'btn-submit';
+  submitBtn.id = 'btnSubmit';
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Submit Bracket';
+  submitBtn.addEventListener('click', submitBracket);
+  colDiv.appendChild(submitBtn);
+  bracketEl.appendChild(colDiv);
 }
 
 function makeSeedBtn(seed, round, matchIdx) {
@@ -422,17 +452,31 @@ function buildBracketJSON() {
 }
 
 // ── SUBMIT ──
+let mySubmittedBracket = null;
+
 async function submitBracket() {
+  // Validate completeness
+  if (Object.keys(picks).length < 31) {
+    showToast('Complete all 31 picks before submitting!', 'error');
+    return;
+  }
+  const bracket = buildBracketJSON();
+  // Verify no nulls in bracket data
+  for (const round of bracket.rounds) {
+    for (const [w, l] of round) {
+      if (!w || !l) { showToast('Bracket is incomplete — fill in all matchups.', 'error'); return; }
+    }
+  }
+  if (!bracket.champion) { showToast('Pick a champion first!', 'error'); return; }
+
   const btn = document.getElementById('btnSubmit');
   btn.disabled = true;
   btn.textContent = 'Submitting…';
 
   try {
-    // Get IP
     const ipRes = await fetch('https://api.ipify.org?format=json');
     const { ip } = await ipRes.json();
 
-    const bracket = buildBracketJSON();
     const champion = FRUITS[bracket.champion].name;
 
     const { error } = await getSupabase().from('submissions').insert({
@@ -442,7 +486,7 @@ async function submitBracket() {
     });
 
     if (error) {
-      if (error.code === '23505') { // unique violation
+      if (error.code === '23505') {
         showToast("You've already submitted a bracket!", 'error');
         setTimeout(() => showResults(), 1500);
         return;
@@ -450,6 +494,7 @@ async function submitBracket() {
       throw error;
     }
 
+    mySubmittedBracket = bracket;
     showToast('Bracket submitted! 🎉', 'success');
     setTimeout(() => showResults(), 1000);
   } catch (e) {
@@ -458,6 +503,24 @@ async function submitBracket() {
     btn.disabled = false;
     btn.textContent = 'Submit Bracket';
   }
+}
+
+// ── VIEW MY BRACKET ──
+function showMyBracket() {
+  if (!mySubmittedBracket) return;
+  const content = document.getElementById('myBracketContent');
+  let html = '';
+  mySubmittedBracket.rounds.forEach((round, rIdx) => {
+    html += `<div class="round-group"><div class="round-title">${ROUND_NAMES[rIdx]}</div>`;
+    round.forEach(([winner, loser]) => {
+      const w = FRUITS[winner], l = FRUITS[loser];
+      html += `<div class="pick-row"><span class="winner-mark">✓</span> ${w.emoji} <strong>${w.name}</strong> <span style="color:var(--text-dim)">over</span> ${l.emoji} ${l.name}</div>`;
+    });
+    html += '</div>';
+  });
+  html += `<div style="text-align:center;margin-top:16px;font-size:1.3rem;">🏆 ${FRUITS[mySubmittedBracket.champion].emoji} <strong>${FRUITS[mySubmittedBracket.champion].name}</strong></div>`;
+  content.innerHTML = html;
+  document.getElementById('myBracketOverlay').classList.add('show');
 }
 
 // ── TOAST ──
@@ -485,6 +548,9 @@ async function showResults() {
   const n = submissions.length;
   document.getElementById('resultsSub').textContent = n === 0 ? 'No submissions yet. Be the first!' : `Based on ${n} bracket${n > 1 ? 's' : ''}`;
   document.getElementById('totalBadge').innerHTML = `📊 <span>${n}</span> submission${n > 1 ? 's' : ''}`;
+
+  // Show "View My Bracket" if we just submitted
+  document.getElementById('btnViewMyBracket').style.display = mySubmittedBracket ? 'inline-block' : 'none';
 
   if (n === 0) { rp.querySelector('.stat-grid').innerHTML = ''; return; }
 
@@ -515,12 +581,12 @@ async function showResults() {
 
   // Overrated
   grid.appendChild(makeListCard('📉', 'Most Overrated', overrated.slice(0, 5), (item, i) =>
-    `<li><span class="rank">${i + 1}</span><span class="emoji">${FRUITS[item.seed].emoji}</span><span class="name">#${item.seed} ${FRUITS[item.seed].name}</span><span class="val">Avg exit: R${item.avgRound.toFixed(1)}</span></li>`
+    `<li><span class="rank">${i + 1}</span><span class="emoji">${FRUITS[item.seed].emoji}</span><span class="name">#${item.seed} ${FRUITS[item.seed].name}</span><span class="val">${item.delta.toFixed(1)} rounds vs expected</span></li>`
   ));
 
   // Underrated
   grid.appendChild(makeListCard('📈', 'Most Underrated', underrated.slice(0, 5), (item, i) =>
-    `<li><span class="rank">${i + 1}</span><span class="emoji">${FRUITS[item.seed].emoji}</span><span class="name">#${item.seed} ${FRUITS[item.seed].name}</span><span class="val">Avg exit: R${item.avgRound.toFixed(1)}</span></li>`
+    `<li><span class="rank">${i + 1}</span><span class="emoji">${FRUITS[item.seed].emoji}</span><span class="name">#${item.seed} ${FRUITS[item.seed].name}</span><span class="val">+${item.delta.toFixed(1)} rounds vs expected</span></li>`
   ));
 
   // Champion Distribution
@@ -590,15 +656,15 @@ function computeFinalFour(submissions) {
 }
 
 function computeUpsets(submissions) {
-  // Matchup: lower seed (higher number) beating higher seed (lower number)
-  const matchups = {}; // key: "winnerSeed-loserSeed"
+  // Upset = higher-numbered seed beating lower-numbered seed
+  // Weight = sqrt(seedGap) × frequency — rewards both magnitude and consensus
+  const matchups = {};
   const n = submissions.length;
 
   submissions.forEach(sub => {
     sub.bracket.rounds.forEach(round => {
       round.forEach(([winner, loser]) => {
         if (winner && loser && winner > loser) {
-          // Upset: higher-numbered seed won
           const key = `${winner}-${loser}`;
           matchups[key] = (matchups[key] || 0) + 1;
         }
@@ -610,14 +676,26 @@ function computeUpsets(submissions) {
     .map(([key, count]) => {
       const [winner, loser] = key.split('-').map(Number);
       const gap = winner - loser;
-      return { winner, loser, count, gap, pct: (count / n) * 100, weight: gap * count };
+      const freq = count / n; // 0-1 how often this upset happens
+      // sqrt(gap) keeps big upsets interesting, × freq² rewards consensus heavily
+      const weight = Math.sqrt(gap) * freq * (1 + freq);
+      return { winner, loser, count, gap, pct: (count / n) * 100, weight };
     })
     .sort((a, b) => b.weight - a.weight);
 }
 
 function computeRatedStats(submissions) {
-  // For each fruit, compute avg round of elimination
-  // Round of elimination: last round they appear as a winner. If never win, round 0 (eliminated in R32).
+  // Expected round based on seed: #1 expected ~5 (champion), #32 expected ~0.
+  // Use log2-based expected round: seed 1→5, 2→4, 3-4→3, 5-8→2, 9-16→1, 17-32→0
+  function expectedRound(seed) {
+    if (seed <= 1) return 5;
+    if (seed <= 2) return 4;
+    if (seed <= 4) return 3;
+    if (seed <= 8) return 2;
+    if (seed <= 16) return 1;
+    return 0;
+  }
+
   const totalRounds = {};
   for (let s = 1; s <= 32; s++) totalRounds[s] = 0;
   const n = submissions.length;
@@ -633,20 +711,22 @@ function computeRatedStats(submissions) {
     for (let s = 1; s <= 32; s++) totalRounds[s] += lastWin[s];
   });
 
-  const avgRounds = Object.entries(totalRounds).map(([seed, total]) => ({
-    seed: parseInt(seed),
-    avgRound: total / n,
-  }));
+  const avgRounds = Object.entries(totalRounds).map(([seed, total]) => {
+    const s = parseInt(seed);
+    const avg = total / n;
+    const expected = expectedRound(s);
+    return { seed: s, avgRound: avg, expected, delta: avg - expected };
+  });
 
-  // Overrated: top 16 seeds with lowest avg round
+  // Overrated: biggest negative delta (expected high, performed low) — sort by delta ascending
   const overrated = avgRounds
-    .filter(x => x.seed <= 16)
-    .sort((a, b) => a.avgRound - b.avgRound);
+    .filter(x => x.expected >= 1) // only seeded to win at least R1
+    .sort((a, b) => a.delta - b.delta);
 
-  // Underrated: bottom 16 seeds (17-32) with highest avg round
+  // Underrated: biggest positive delta (expected low, performed high) — sort by delta descending
   const underrated = avgRounds
-    .filter(x => x.seed > 16)
-    .sort((a, b) => b.avgRound - a.avgRound);
+    .filter(x => x.expected <= 2) // lower seeds
+    .sort((a, b) => b.delta - a.delta);
 
   return { overrated, underrated };
 }
