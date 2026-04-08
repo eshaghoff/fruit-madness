@@ -75,6 +75,8 @@ header p { color: var(--text-dim); margin-top: 6px; font-size: 0.95rem; }
 .my-bracket-modal .pick-row { display: flex; align-items: center; gap: 6px; padding: 4px 0; font-size: 0.85rem; }
 .my-bracket-modal .pick-row .winner-mark { color: var(--accent); }
 .btn-close-modal { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 8px 20px; border-radius: var(--radius); font-weight: 600; margin-top: 16px; }
+.btn-share { background: linear-gradient(135deg, var(--accent3), #818cf8); color: #fff; border: none; padding: 8px 20px; border-radius: var(--radius); font-weight: 600; margin-top: 16px; margin-left: 8px; }
+.btn-share:hover { opacity: 0.9; }
 
 /* ── Toast / Modal ── */
 .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: var(--surface2); border: 1px solid var(--border); padding: 12px 24px; border-radius: var(--radius); font-size: 0.9rem; z-index: 1000; display: none; box-shadow: 0 8px 30px rgba(0,0,0,0.4); }
@@ -171,7 +173,10 @@ header p { color: var(--text-dim); margin-top: 6px; font-size: 0.95rem; }
   <div class="my-bracket-modal">
     <h2>🗒️ Your Submitted Bracket</h2>
     <div id="myBracketContent"></div>
-    <button class="btn-close-modal" id="btnCloseModal">Close</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn-close-modal" id="btnCloseModal">Close</button>
+      <button class="btn-share" id="btnShareBracket">📸 Save as Image</button>
+    </div>
   </div>
 </div>
 
@@ -249,6 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btnViewMyBracket').addEventListener('click', showMyBracket);
   document.getElementById('btnCloseModal').addEventListener('click', () => document.getElementById('myBracketOverlay').classList.remove('show'));
   document.getElementById('myBracketOverlay').addEventListener('click', (e) => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('show'); });
+  document.getElementById('btnShareBracket').addEventListener('click', shareBracketAsImage);
   // Check URL hash
   if (location.hash === '#results') showResults();
 });
@@ -521,6 +527,93 @@ function showMyBracket() {
   html += `<div style="text-align:center;margin-top:16px;font-size:1.3rem;">🏆 ${FRUITS[mySubmittedBracket.champion].emoji} <strong>${FRUITS[mySubmittedBracket.champion].name}</strong></div>`;
   content.innerHTML = html;
   document.getElementById('myBracketOverlay').classList.add('show');
+}
+
+// ── SHARE BRACKET AS IMAGE ──
+function shareBracketAsImage() {
+  if (!mySubmittedBracket) return;
+  const b = mySubmittedBracket;
+  const W = 900, pad = 30;
+  const rowH = 22, roundGap = 14, headerH = 70, footerH = 60;
+  const totalMatchups = b.rounds.reduce((s, r) => s + r.length, 0);
+  const H = headerH + (totalMatchups * rowH) + (5 * roundGap) + footerH + pad * 2;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = W * 2; canvas.height = H * 2;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(2, 2); // retina
+
+  // Background
+  ctx.fillStyle = '#0f1117';
+  ctx.fillRect(0, 0, W, H);
+
+  // Title
+  ctx.fillStyle = '#f59e0b';
+  ctx.font = 'bold 22px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('🍉 Fruit Madness 2026 🍊', W / 2, pad + 28);
+  ctx.fillStyle = '#9ca3af';
+  ctx.font = '13px system-ui, sans-serif';
+  ctx.fillText('My Bracket', W / 2, pad + 48);
+
+  // Rounds
+  let y = headerH + pad;
+  ctx.textAlign = 'left';
+
+  b.rounds.forEach((round, rIdx) => {
+    // Round header
+    ctx.fillStyle = '#f59e0b';
+    ctx.font = 'bold 11px system-ui, sans-serif';
+    ctx.fillText(ROUND_NAMES[rIdx].toUpperCase(), pad, y);
+    y += 6;
+
+    round.forEach(([winner, loser]) => {
+      const w = FRUITS[winner], l = FRUITS[loser];
+      y += rowH;
+      // Winner
+      ctx.fillStyle = '#22c55e';
+      ctx.font = 'bold 13px system-ui, sans-serif';
+      ctx.fillText('✓', pad, y);
+      ctx.fillStyle = '#e4e4e7';
+      ctx.font = '13px system-ui, sans-serif';
+      const wText = `${w.emoji} ${w.name}`;
+      ctx.fillText(wText, pad + 18, y);
+      // "over"
+      const wWidth = ctx.measureText(wText).width;
+      ctx.fillStyle = '#6b7280';
+      ctx.fillText(' over ', pad + 18 + wWidth, y);
+      const overWidth = ctx.measureText(' over ').width;
+      // Loser
+      ctx.fillStyle = '#6b7280';
+      ctx.fillText(`${l.emoji} ${l.name}`, pad + 18 + wWidth + overWidth, y);
+    });
+    y += roundGap;
+  });
+
+  // Champion
+  y += 10;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#f59e0b';
+  ctx.font = 'bold 18px system-ui, sans-serif';
+  const champF = FRUITS[b.champion];
+  ctx.fillText(`🏆 ${champF.emoji} ${champF.name}`, W / 2, y);
+
+  // Footer
+  y += 24;
+  ctx.fillStyle = '#4b5563';
+  ctx.font = '11px system-ui, sans-serif';
+  ctx.fillText('fruitmadness2026 • eshaghoff.github.io/fruit-madness', W / 2, y);
+
+  // Download
+  canvas.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'my-fruit-madness-bracket.png';
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Bracket image saved! 📸', 'success');
+  }, 'image/png');
 }
 
 // ── TOAST ──
