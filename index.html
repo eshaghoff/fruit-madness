@@ -658,7 +658,7 @@ async function showResults() {
   grid.innerHTML = '';
 
   // Power Rankings
-  grid.appendChild(makeListCard('⚡', 'Power Rankings', elo.slice(0, 15), (item, i) =>
+  grid.appendChild(makeListCard('⚡', 'Power Rankings', elo, (item, i) =>
     `<li><span class="rank">${i + 1}</span><span class="emoji">${FRUITS[item.seed].emoji}</span><span class="name">${FRUITS[item.seed].name}</span><span class="val">${item.score.toFixed(0)} pts</span></li>`
   ));
 
